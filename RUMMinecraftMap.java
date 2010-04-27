@@ -19,24 +19,12 @@ import java.util.zip.GZIPOutputStream;
 import mcmaplib.util.ExtendedDataInputStream;
 import mcmaplib.util.ExtendedDataOutputStream;
 
-public class RUMMinecraftMap implements Cloneable, Serializable {
-    private static final int MAX_WIDTH = 65535,
-                             MAX_HEIGHT = 65535,
-                             MAX_DEPTH = 65535,
-                             MAX_SPAWN_ROTATION = 255,
-                             MAX_SPAWN_PITCH = 255,
-                             MAX_BLOCK_LENGTH = 257,
+public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializable {
+    private static final int MAX_BLOCK_LENGTH = 257,
 
-                             MIN_WIDTH = 16,
-                             MIN_HEIGHT = 16,
-                             MIN_DEPTH = 16,
-                             MIN_SPAWN_ROTATION = 0,
-                             MIN_SPAWN_PITCH = 0,
                              MIN_BLOCK_LENGTH = 2,
 
-                             MAX_METADATA_SIZE = 65535,
-                             MAX_BLOCK_DATA_SIZE = Integer.MAX_VALUE,
-                             MIN_BLOCK_DATA_SIZE = MIN_WIDTH * MIN_HEIGHT * MIN_DEPTH;
+                             MAX_METADATA_SIZE = 65535;
 
     private static final byte SPECIAL_BIT =  (byte)0x80,
                               SOLID_BIT =    (byte)0x40,
@@ -117,7 +105,7 @@ public class RUMMinecraftMap implements Cloneable, Serializable {
         this.blockLength = (short)blockLength;
 
         if(isPlayerOutOfBounds(spawnWidth, spawnHeight, spawnDepth))
-                throw new InvalidMapException("Spawn out of bounds");
+            throw new InvalidMapException("Spawn out of bounds");
     }
 
     public RUMMinecraftMap(File file) throws IOException, MapFormatException, NotImplementedException {
