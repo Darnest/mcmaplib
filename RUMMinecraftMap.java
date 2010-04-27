@@ -114,7 +114,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
             rumMap.getSpawnDepth(),
             rumMap.getSpawnRotation(),
             rumMap.getSpawnPitch(),
-            rumMap.getMetaDataMap(),
+            rumMap.getMetadataMap(),
             rumMap.getExtendedBlocks(),
             rumMap.getExtendedBlockLength()
         );
@@ -158,6 +158,20 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         );
     }
 
+    private static Map<String, byte[]> getMCSharpMetadata(MCSharpMinecraftMap mcSharpMap) {
+        Map<String, byte[]> metadata;
+        byte[] visitPermission, buildPermission;
+
+        metadata = getDefaultMetadata();
+        visitPermission = new byte[1];
+        buildPermission = new byte[1];
+        visitPermission[0] = (byte)mcSharpMap.getVisitPermission().CODE;
+        buildPermission[0] = (byte)mcSharpMap.getBuildPermission().CODE;
+        metadata.put("mcmaplib_mcsharp_visitPermission", visitPermission);
+        metadata.put("mcmaplib_mcsharp_buildPermission", buildPermission);
+        return metadata;
+    }
+    
     public RUMMinecraftMap(MCSharpMinecraftMap mcSharpMap) throws InvalidMapException {
         this(
             mcSharpMap.getWidth(),
@@ -194,13 +208,13 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
                 BigInteger totalBlocks;
                 
                 {
-                    int metaDataLength;
+                    int metadataLength;
 
-                    metaDataLength = din.readLEUnsignedShort();
+                    metadataLength = din.readLEUnsignedShort();
                     metadata = Collections.synchronizedMap(
-                        new HashMap<String, byte[]>(metaDataLength)
+                        new HashMap<String, byte[]>(metadataLength)
                     );
-                    for(int i = 0; i < metaDataLength;i++) {
+                    for(int i = 0; i < metadataLength;i++) {
                         String name;
                         byte[] payload;
 
@@ -456,7 +470,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         return isOutOfBounds(width / 32, height / 32, depth / 32);
     }
 
-    public byte[] getMetaData(String name) {
+    public byte[] getMetadata(String name) {
         return metadata.get(name);
     }
 
@@ -669,8 +683,16 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
             blockData[offset][i] = 0;
     }
 
-    public void setMetaData(String name, byte[] value) {
+    public void setMetadata(String name, byte[] value) {
         metadata.put(name, value);
+    }
+
+    public void deleteMetadata(String name) {
+        metadata.remove(name);
+    }
+
+    public boolean hasMetadata(String name) {
+        return metadata.containsKey(name);
     }
 
     public byte[] getBlocks() {
@@ -690,7 +712,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         return blockLength;
     }
 
-    public Map<String, byte[]> getMetaDataMap() {
+    public Map<String, byte[]> getMetadataMap() {
         return Collections.synchronizedMap(
             new HashMap<String, byte[]>(metadata)
         );

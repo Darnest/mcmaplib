@@ -114,11 +114,11 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         short permissionCode;
         LevelPermission permission;
 
-        permissionData = map.getMetaData(name);
+        permissionData = map.getMetadata(name);
         if(permissionData.length > 0) {
             permissionCode = permissionData[0];
             if(permissionCode < 0)
-                permissionCode = (short)((- permissionCode) + Byte.MIN_VALUE);
+                permissionCode = (short)((- permissionCode) + 0x80);
             permission = LevelPermission.fromCode(permissionCode);
         } else
             permission = LevelPermission.NULL;
@@ -126,11 +126,25 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
     }
 
     private static LevelPermission getRUMMapVisitPermission(RUMMinecraftMap rumMap) {
-        return getRUMMapPermission(rumMap, "mcsharp_visitPermission");
+        LevelPermission visitPermission;
+        byte[] originData;
+        String origin;
+        
+        originData = rumMap.getMetadata("_origin");
+        if(originData != null) {
+            origin = new String(originData);
+            if(origin.equals("mcmaplib"))
+                visitPermission = getRUMMapPermission(rumMap, "mcmaplib_mcsharp_visitPermission");
+            else
+                visitPermission = LevelPermission.NULL;
+        } else {
+            visitPermission = LevelPermission.NULL;
+        }
+        return visitPermission;
     }
 
     private static LevelPermission getRUMMapBuildPermission(RUMMinecraftMap rumMap) {
-        return getRUMMapPermission(rumMap, "mcsharp_buildPermission");
+        return getRUMMapPermission(rumMap, "mcmaplib_mcsharp_buildPermission");
     }
 
     public MCSharpMinecraftMap(RUMMinecraftMap rumMap) throws InvalidMapException {
