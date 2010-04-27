@@ -33,11 +33,11 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
                               PORTAL_BIT =   (byte)0x08,
                               SCRIPTED_BIT = (byte)0x04;
 
-    private static final long[] SUPPORTED_VERSIONS = new long[]{
+    public static final long[] SUPPORTED_VERSIONS = new long[]{
         0xAA000001L
     };
+    public static final long CURRENT_VERSION = SUPPORTED_VERSIONS[0];
 
-    private final long version;
     private final int width, height, depth;
     private volatile int spawnWidth, spawnHeight, spawnDepth;
     private volatile short spawnRotation, spawnPitch;
@@ -45,16 +45,12 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     protected final byte[][] blockData;
     protected final short blockLength;
 
-    public RUMMinecraftMap(long version,
-                  int width, int height, int depth,
+    public RUMMinecraftMap(int width, int height, int depth,
                   int spawnWidth, int spawnHeight, int spawnDepth,
                   int spawnRotation, int spawnPitch,
                   Map<String, byte[]> metadata,
                   byte[][] blockData,
                   int blockLength) throws InvalidMapException {
-        if(!isVersionSupported(version))
-            throw new InvalidMapException("Unsupported version");
-
         if(width > MAX_WIDTH || width < MIN_WIDTH)
             throw new InvalidMapException("Invalid width");
 
@@ -91,7 +87,6 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         if(blockData[0].length != blockLength)
             throw new InvalidMapException("blockData inner array length does not equal blockLength");
 
-        this.version = version;
         this.width = width;
         this.height = height;
         this.depth = depth;
@@ -111,6 +106,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     public RUMMinecraftMap(File file) throws IOException, MapFormatException, NotImplementedException {
         ExtendedDataInputStream in;
         FileInputStream fis;
+        long version;
 
         fis = new FileInputStream(file);
         in = new ExtendedDataInputStream(fis);
@@ -228,7 +224,6 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
 
     public RUMMinecraftMap(RUMMinecraftMap rumMap) throws InvalidMapException {
         this(
-            rumMap.getVersion(),
             rumMap.getWidth(),
             rumMap.getHeight(),
             rumMap.getDepth(),
@@ -310,6 +305,10 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     }
 
     public void save(File file) throws IOException, NotImplementedException {
+        save(file, CURRENT_VERSION);
+    }
+
+    public void save(File file, long version) throws IOException, NotImplementedException {
         OutputStream out;
         ExtendedDataOutputStream dos;
 
@@ -359,10 +358,6 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
 
     public byte[] getMetaData(String name) {
         return metadata.get(name);
-    }
-
-    public long getVersion() {
-        return version;
     }
 
     public int getWidth() {
