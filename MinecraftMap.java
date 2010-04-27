@@ -6,12 +6,18 @@ public abstract class MinecraftMap implements Cloneable, Serializable {
     protected static final int MAX_WIDTH = 65535,
                                MAX_HEIGHT = 65535,
                                MAX_DEPTH = 65535,
+                               MAX_SPAWN_WIDTH = 65535,
+                               MAX_SPAWN_HEIGHT = 65535,
+                               MAX_SPAWN_DEPTH = 65535,
                                MAX_SPAWN_ROTATION = 255,
                                MAX_SPAWN_PITCH = 255,
 
                                MIN_WIDTH = 16,
                                MIN_HEIGHT = 16,
                                MIN_DEPTH = 16,
+                               MIN_SPAWN_WIDTH = 0,
+                               MIN_SPAWN_HEIGHT = 0,
+                               MIN_SPAWN_DEPTH = 0,
                                MIN_SPAWN_ROTATION = 0,
                                MIN_SPAWN_PITCH = 0,
 

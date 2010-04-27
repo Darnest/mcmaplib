@@ -14,6 +14,7 @@ import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import mcmaplib.util.ExtendedDataInputStream;
@@ -60,13 +61,13 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         if(depth > MAX_DEPTH || depth < MIN_DEPTH)
             throw new InvalidMapException("Invalid depth");
 
-        if(spawnWidth > MAX_WIDTH || spawnWidth < MIN_WIDTH)
+        if(spawnWidth > MAX_SPAWN_WIDTH || spawnWidth < MIN_SPAWN_WIDTH)
             throw new InvalidMapException("Invalid spawn width");
 
-        if(spawnHeight > MAX_HEIGHT || spawnHeight < MIN_HEIGHT)
+        if(spawnHeight > MAX_SPAWN_HEIGHT || spawnHeight < MIN_SPAWN_HEIGHT)
             throw new InvalidMapException("Invalid spawn height");
 
-        if(spawnDepth > MAX_DEPTH || spawnDepth < MIN_DEPTH)
+        if(spawnDepth > MAX_SPAWN_DEPTH || spawnDepth < MIN_SPAWN_DEPTH)
             throw new InvalidMapException("Invalid spawn depth");
 
         if(spawnRotation > MAX_SPAWN_ROTATION || spawnRotation < MIN_SPAWN_ROTATION)
@@ -103,125 +104,6 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
             throw new InvalidMapException("Spawn out of bounds");
     }
 
-    public RUMMinecraftMap(File file) throws IOException, MapFormatException, NotImplementedException {
-        ExtendedDataInputStream in;
-        FileInputStream fis;
-        long version;
-
-        fis = new FileInputStream(file);
-        in = new ExtendedDataInputStream(fis);
-        try {
-            version = in.readUnsignedInt();
-            if(version == SUPPORTED_VERSIONS[0]) {
-                GZIPInputStream gin;
-                ExtendedDataInputStream gdin;
-                BigInteger totalBlocks;
-
-                gin = new GZIPInputStream(in);
-                gdin = new ExtendedDataInputStream(gin);
-                {
-                    int metaDataLength;
-
-                    metaDataLength = gdin.readLEUnsignedShort();
-                    metadata = Collections.synchronizedMap(
-                        new HashMap<String, byte[]>(metaDataLength)
-                    );
-                    for(int i = 0; i < metaDataLength;i++) {
-                        String name;
-                        byte[] payload;
-
-                        {
-                            byte[] nameData;
-                            int read = 0, nameLength;
-
-                            nameLength = gdin.readLEUnsignedShort();
-                            nameData = new byte[nameLength];
-                            while(read < nameLength) {
-                                int nread;
-                                nread = gdin.read(nameData, read, nameLength - read);
-                                if(nread == -1)
-                                    throw new MapFormatException("Map file incomplete");
-                                read += nread;
-                            }
-                            name = new String(nameData);
-                        }
-
-                        {
-                            int read = 0, payloadLength;
-
-                            payloadLength = gdin.readLEUnsignedShort();
-                            payload = new byte[payloadLength];
-                            while(read < payloadLength) {
-                                int nread;
-                                nread = gdin.read(payload, read, payloadLength - read);
-                                if(nread == -1)
-                                    throw new MapFormatException("Map file incomplete");
-                                read += nread;
-                            }
-                        }
-
-                        metadata.put(name, payload);
-                    }
-                }
-
-                width = gdin.readLEUnsignedShort();
-                height = gdin.readLEUnsignedShort();
-                depth = gdin.readLEUnsignedShort();
-
-                spawnWidth = gdin.readLEUnsignedShort();
-                spawnHeight = gdin.readLEUnsignedShort();
-                spawnDepth = gdin.readLEUnsignedShort();
-
-                spawnRotation = (short)gdin.readLEUnsignedByte();
-                spawnPitch = (short)gdin.readLEUnsignedByte();
-
-                blockLength = (short)(2 + gdin.readLEUnsignedByte());
-
-                totalBlocks = BigInteger.valueOf(width)
-                    .multiply(BigInteger.valueOf(height))
-                    .multiply(BigInteger.valueOf(depth));
-
-                if(totalBlocks.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1)
-                    throw new MapFormatException("Width, height, and depth are too long");
-
-                {
-                    int read = 0, blocksRead = 0, intTotalBlocks;
-                    BigInteger dataLength, currentDataLength;
-
-                    intTotalBlocks = totalBlocks.intValue();
-
-                    dataLength = gdin.readLEUnsignedBigInteger(8);
-                    currentDataLength = totalBlocks.multiply(BigInteger.valueOf(blockLength));
-                    
-                    if(dataLength.compareTo(currentDataLength) != 0)
-                        throw new MapFormatException("Block data array has incorrect size");
-
-                    blockData = new byte[intTotalBlocks][blockLength];
-                    while(blocksRead < intTotalBlocks) {
-                            int nread;
-                            nread = gdin.read(blockData[blocksRead], read, blockLength - read);
-                            if(nread == -1)
-                                throw new MapFormatException("Map file incomplete");
-                            read += nread;
-                            if(read == blockLength) {
-                                read = 0;
-                                blocksRead++;
-                            }
-                    }
-
-                    if(gdin.read() != -1)
-                        throw new MapFormatException("Garbage at end of map file");
-                }
-            } else {
-                throw new NotImplementedException("Unsupported file version");
-            }
-        } catch(EOFException e) {
-            throw new MapFormatException("Map file incomplete", e);
-        } finally {
-            in.close();
-        }
-    }
-
     public RUMMinecraftMap(RUMMinecraftMap rumMap) throws InvalidMapException {
         this(
             rumMap.getWidth(),
@@ -238,12 +120,230 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         );
     }
 
-    protected void saveVersion1(OutputStream out) throws IOException, NotImplementedException {
-        ExtendedDataOutputStream dos;
+    private static Map<String, byte[]> getDefaultMetadata() {
+        Map<String, byte[]> metadata;
+
+        metadata = Collections.synchronizedMap(
+            new HashMap<String, byte[]>()
+        );
+
+        metadata.put("_origin", "mcmaplib".getBytes());
+
+        return metadata;
+    }
+
+    private static byte[][] extendBlocks(byte[] blocks, int blockLength) {
+        byte[][] extendedBlocks;
+
+        extendedBlocks = new byte[blocks.length][blockLength];
+        for(int i = 0;i < blocks.length;i++) {
+            extendedBlocks[i][0] = blocks[i];
+        }
+        return extendedBlocks;
+    }
+
+    public RUMMinecraftMap(MinecraftMap map) throws InvalidMapException {
+        this(
+            map.getWidth(),
+            map.getHeight(),
+            map.getDepth(),
+            map.getSpawnWidth(),
+            map.getSpawnHeight(),
+            map.getSpawnDepth(),
+            map.getSpawnRotation(),
+            map.getSpawnPitch(),
+            getDefaultMetadata(),
+            extendBlocks(map.getBlocks(), 2),
+            2
+        );
+    }
+
+    public RUMMinecraftMap(MCSharpMinecraftMap mcSharpMap) throws InvalidMapException {
+        this(
+            mcSharpMap.getWidth(),
+            mcSharpMap.getHeight(),
+            mcSharpMap.getDepth(),
+            mcSharpMap.getSpawnWidth(),
+            mcSharpMap.getSpawnHeight(),
+            mcSharpMap.getSpawnDepth(),
+            mcSharpMap.getSpawnRotation(),
+            mcSharpMap.getSpawnPitch(),
+            getDefaultMetadata(),
+            extendBlocks(mcSharpMap.getBlocks(), 2),
+            2
+        );
+    }
+
+    private static RUMMinecraftMap loadVersion1(InputStream in)
+            throws IOException, EOFException, MapFormatException, NotImplementedException {
+        RUMMinecraftMap map;
+        int width, height, depth;
+        int spawnWidth, spawnHeight, spawnDepth;
+        short spawnRotation, spawnPitch;
+        Map<String, byte[]> metadata;
+        byte[][] blockData;
+        short blockLength;
+        GZIPInputStream gin;
+
+        gin = new GZIPInputStream(in);
+        try {
+            ExtendedDataInputStream din;
+
+            din = new ExtendedDataInputStream(gin);
+            try {
+                BigInteger totalBlocks;
+                
+                {
+                    int metaDataLength;
+
+                    metaDataLength = din.readLEUnsignedShort();
+                    metadata = Collections.synchronizedMap(
+                        new HashMap<String, byte[]>(metaDataLength)
+                    );
+                    for(int i = 0; i < metaDataLength;i++) {
+                        String name;
+                        byte[] payload;
+
+                        {
+                            byte[] nameData;
+                            int read = 0, nameLength;
+
+                            nameLength = din.readLEUnsignedShort();
+                            nameData = new byte[nameLength];
+                            while(read < nameLength) {
+                                int nread;
+                                nread = din.read(nameData, read, nameLength - read);
+                                if(nread == -1)
+                                    throw new EOFException();
+                                read += nread;
+                            }
+                            name = new String(nameData);
+                        }
+
+                        {
+                            int read = 0, payloadLength;
+
+                            payloadLength = din.readLEUnsignedShort();
+                            payload = new byte[payloadLength];
+                            while(read < payloadLength) {
+                                int nread;
+                                nread = din.read(payload, read, payloadLength - read);
+                                if(nread == -1)
+                                    throw new EOFException();
+                                read += nread;
+                            }
+                        }
+
+                        metadata.put(name, payload);
+                    }
+                }
+
+                width = din.readLEUnsignedShort();
+                height = din.readLEUnsignedShort();
+                depth = din.readLEUnsignedShort();
+
+                spawnWidth = din.readLEUnsignedShort();
+                spawnHeight = din.readLEUnsignedShort();
+                spawnDepth = din.readLEUnsignedShort();
+
+                spawnRotation = (short)din.readLEUnsignedByte();
+                spawnPitch = (short)din.readLEUnsignedByte();
+
+                blockLength = (short)(2 + din.readLEUnsignedByte());
+
+                totalBlocks = BigInteger.valueOf(width)
+                    .multiply(BigInteger.valueOf(height))
+                    .multiply(BigInteger.valueOf(depth));
+
+                if(totalBlocks.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1)
+                    throw new MapFormatException("Width, height, and depth are too long");
+
+                {
+                    int read = 0, blocksRead = 0, intTotalBlocks;
+                    BigInteger dataLength, currentDataLength;
+
+                    intTotalBlocks = totalBlocks.intValue();
+
+                    dataLength = din.readLEUnsignedBigInteger(8);
+                    currentDataLength = totalBlocks.multiply(BigInteger.valueOf(blockLength));
+
+                    if(dataLength.compareTo(currentDataLength) != 0)
+                        throw new MapFormatException("Block data array has incorrect size");
+
+                    blockData = new byte[intTotalBlocks][blockLength];
+                    while(blocksRead < intTotalBlocks) {
+                            int nread;
+                            nread = din.read(blockData[blocksRead], read, blockLength - read);
+                            if(nread == -1)
+                                throw new EOFException();
+                            read += nread;
+                            if(read == blockLength) {
+                                read = 0;
+                                blocksRead++;
+                            }
+                    }
+
+                    if(din.read() != -1)
+                        throw new EOFException();
+                }
+            } finally {
+                din.close();
+            }
+        } finally {
+            gin.close();
+        }
+
+        try {
+            map = new RUMMinecraftMap(
+                width, height, depth,
+                spawnWidth, spawnHeight, spawnDepth,
+                spawnRotation, spawnPitch,
+                metadata, blockData, blockLength
+            );
+        } catch(InvalidMapException e) {
+            throw new MapFormatException(e);
+        }
+
+        return map;
+    }
+
+    public static RUMMinecraftMap load(File file)
+            throws IOException, MapFormatException, NotImplementedException {
+        RUMMinecraftMap map;
+        FileInputStream fis;
+        long version;
+
+        fis = new FileInputStream(file);
+        try {
+            ExtendedDataInputStream din;
+            
+            din = new ExtendedDataInputStream(fis);
+            try {
+                version = din.readUnsignedInt();
+                if(version == SUPPORTED_VERSIONS[0]) {
+                    map = loadVersion1(din);
+                } else {
+                    throw new NotImplementedException("Unsupported file version");
+                }
+            } finally {
+                din.close();
+            }
+        } catch(EOFException e) {
+            throw new MapFormatException("Map file incomplete", e);
+        } finally {
+            fis.close();
+        }
+        return map;
+    }
+
+    private void saveVersion1(OutputStream out)
+            throws IOException, NotImplementedException {
         GZIPOutputStream gos;
 
         gos = new GZIPOutputStream(out);
         try {
+            ExtendedDataOutputStream dos;
+            
             dos = new ExtendedDataOutputStream(gos);
             try {
                 dos.writeLEUnsignedShort(metadata.size());
@@ -304,32 +404,32 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         }
     }
 
-    public void save(File file) throws IOException, NotImplementedException {
+    public void save(File file)
+            throws IOException, NotImplementedException {
         save(file, CURRENT_VERSION);
     }
 
-    public void save(File file, long version) throws IOException, NotImplementedException {
+    public void save(File file, long version)
+            throws IOException, NotImplementedException {
         OutputStream out;
-        ExtendedDataOutputStream dos;
-
         
-        if(isVersionSupported(version)) {
-            out = new FileOutputStream(file);
+        out = new FileOutputStream(file);
+        try {
+            ExtendedDataOutputStream dos;
+            
+            dos = new ExtendedDataOutputStream(out);
             try {
-                dos = new ExtendedDataOutputStream(out);
-                try {
-                    dos.writeUnsignedInt(version);
-                    if(version == SUPPORTED_VERSIONS[0])
-                        saveVersion1(out);
-                } finally {
-                    dos.close();
-                }
+                dos.writeUnsignedInt(version);
+                if(version == SUPPORTED_VERSIONS[0])
+                    saveVersion1(out);
+                else
+                    throw new NotImplementedException("Cannot save map, unsupported version");
             } finally {
-                out.close();
+                dos.close();
             }
-        } else {
-            throw new IOException("Cannot save map, unsupported version");
-        } 
+        } finally {
+            out.close();
+        }
     }
 
     public static boolean isVersionSupported(long version) {

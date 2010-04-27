@@ -3,10 +3,10 @@ package mcmaplib;
 import java.util.Arrays;
 
 public class MinecraftMapBase extends MinecraftMap {
-    private final int width, height, depth;
-    private volatile int spawnWidth, spawnHeight, spawnDepth;
-    private volatile short spawnRotation, spawnPitch;
-    private final byte[] blocks;
+    protected final int width, height, depth;
+    protected volatile int spawnWidth, spawnHeight, spawnDepth;
+    protected volatile short spawnRotation, spawnPitch;
+    protected final byte[] blocks;
 
     public MinecraftMapBase(byte[] blocks,
                             int width, int height, int depth,
@@ -22,13 +22,13 @@ public class MinecraftMapBase extends MinecraftMap {
         if(depth > MAX_DEPTH || depth < MIN_DEPTH)
             throw new InvalidMapException("Invalid depth");
 
-        if(spawnWidth > MAX_WIDTH || spawnWidth < MIN_WIDTH)
+        if(spawnWidth > MAX_SPAWN_WIDTH || spawnWidth < MIN_SPAWN_WIDTH)
             throw new InvalidMapException("Invalid spawn width");
 
-        if(spawnHeight > MAX_HEIGHT || spawnHeight < MIN_HEIGHT)
+        if(spawnHeight > MAX_SPAWN_HEIGHT || spawnHeight < MIN_SPAWN_HEIGHT)
             throw new InvalidMapException("Invalid spawn height");
 
-        if(spawnDepth > MAX_DEPTH || spawnDepth < MIN_DEPTH)
+        if(spawnDepth > MAX_SPAWN_DEPTH || spawnDepth < MIN_SPAWN_DEPTH)
             throw new InvalidMapException("Invalid spawn depth");
 
         if(spawnRotation > MAX_SPAWN_ROTATION || spawnRotation < MIN_SPAWN_ROTATION)

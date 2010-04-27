@@ -93,6 +93,22 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         );
     }
 
+    public MCSharpMinecraftMap(MCSharpMinecraftMap mcSharpMap) throws InvalidMapException {
+        this(
+            mcSharpMap.getBlocks(),
+            mcSharpMap.getWidth(),
+            mcSharpMap.getHeight(),
+            mcSharpMap.getDepth(),
+            mcSharpMap.getSpawnWidth(),
+            mcSharpMap.getSpawnHeight(),
+            mcSharpMap.getSpawnDepth(),
+            mcSharpMap.getSpawnRotation(),
+            mcSharpMap.getSpawnPitch(),
+            mcSharpMap.getVisitPermission(),
+            mcSharpMap.getBuildPermission()
+        );
+    }
+
     private static LevelPermission getRUMMapPermission(RUMMinecraftMap map, String name) {
         byte[] permissionData;
         short permissionCode;
@@ -109,27 +125,27 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         return permission;
     }
 
-    private static LevelPermission getRUMMapVisitPermission(RUMMinecraftMap map) {
-        return getRUMMapPermission(map, "mcsharp_visitPermission");
+    private static LevelPermission getRUMMapVisitPermission(RUMMinecraftMap rumMap) {
+        return getRUMMapPermission(rumMap, "mcsharp_visitPermission");
     }
 
-    private static LevelPermission getRUMMapBuildPermission(RUMMinecraftMap map) {
-        return getRUMMapPermission(map, "mcsharp_buildPermission");
+    private static LevelPermission getRUMMapBuildPermission(RUMMinecraftMap rumMap) {
+        return getRUMMapPermission(rumMap, "mcsharp_buildPermission");
     }
 
-    public MCSharpMinecraftMap(RUMMinecraftMap map) throws InvalidMapException {
+    public MCSharpMinecraftMap(RUMMinecraftMap rumMap) throws InvalidMapException {
         this(
-            map.getBlocks(),
-            map.getWidth(),
-            map.getHeight(),
-            map.getDepth(),
-            map.getSpawnWidth(),
-            map.getSpawnHeight(),
-            map.getSpawnDepth(),
-            map.getSpawnRotation(),
-            map.getSpawnPitch(),
-            getRUMMapVisitPermission(map),
-            getRUMMapBuildPermission(map)
+            rumMap.getBlocks(),
+            rumMap.getWidth(),
+            rumMap.getHeight(),
+            rumMap.getDepth(),
+            rumMap.getSpawnWidth(),
+            rumMap.getSpawnHeight(),
+            rumMap.getSpawnDepth(),
+            rumMap.getSpawnRotation(),
+            rumMap.getSpawnPitch(),
+            getRUMMapVisitPermission(rumMap),
+            getRUMMapBuildPermission(rumMap)
         );
     }
 
@@ -231,16 +247,16 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
     }
 
     private void saveVersion1(ExtendedDataOutputStream dos) throws IOException {
-        dos.writeUnsignedShort(getWidth());
-        dos.writeUnsignedShort(getHeight());
-        dos.writeUnsignedShort(getDepth());
+        dos.writeUnsignedShort(width);
+        dos.writeUnsignedShort(height);
+        dos.writeUnsignedShort(depth);
 
-        dos.writeUnsignedShort(getSpawnWidth());
-        dos.writeUnsignedShort(getSpawnHeight());
-        dos.writeUnsignedShort(getSpawnDepth());
+        dos.writeUnsignedShort(spawnWidth);
+        dos.writeUnsignedShort(spawnHeight);
+        dos.writeUnsignedShort(spawnDepth);
 
-        dos.writeUnsignedByte(getSpawnPitch());
-        dos.writeUnsignedByte(getSpawnRotation());
+        dos.writeUnsignedByte(spawnPitch);
+        dos.writeUnsignedByte(spawnRotation);
 
         dos.writeUnsignedByte(visitPermission.CODE);
         dos.writeUnsignedByte(buildPermission.CODE);
