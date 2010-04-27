@@ -10,6 +10,14 @@ public class ExtendedDataOutputStream extends DataOutputStream {
         super(out);
     }
 
+    public void writeUnsignedByte(short b) throws IOException {
+        writeByte((byte)b);
+    }
+
+    public void writeUnsignedShort(int s) throws IOException {
+        writeShort((short)s);
+    }
+
     public void writeLEUnsignedByte(short b) throws IOException {
         write(b & 0xFF);
     }
