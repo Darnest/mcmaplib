@@ -3,10 +3,10 @@ package mcmaplib;
 import java.util.Arrays;
 
 public class MinecraftMapBase extends MinecraftMap {
-    private int width, height, depth,
-                spawnWidth, spawnHeight, spawnDepth;
-    private short spawnRotation, spawnPitch;
-    private byte[] blocks;
+    private final int width, height, depth;
+    private volatile int spawnWidth, spawnHeight, spawnDepth;
+    private volatile short spawnRotation, spawnPitch;
+    private final byte[] blocks;
 
     public MinecraftMapBase(byte[] blocks,
                             int width, int height, int depth,
