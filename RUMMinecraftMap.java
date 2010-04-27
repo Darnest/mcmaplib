@@ -217,7 +217,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
                         throw new MapFormatException("Garbage at end of map file");
                 }
             } else {
-                throw new MapFormatException("Unsupported file version");
+                throw new NotImplementedException("Unsupported file version");
             }
         } catch(EOFException e) {
             throw new MapFormatException("Map file incomplete", e);
