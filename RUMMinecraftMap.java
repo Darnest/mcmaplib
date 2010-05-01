@@ -37,7 +37,8 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     public static final long[] SUPPORTED_VERSIONS = new long[]{
         0xAA000001L
     };
-    public static final long CURRENT_VERSION = SUPPORTED_VERSIONS[0];
+    public static final long VERSION_1 = SUPPORTED_VERSIONS[0],
+                             CURRENT_VERSION = VERSION_1;
 
     private final int width, height, depth;
     private volatile int spawnWidth, spawnHeight, spawnDepth;
@@ -158,35 +159,6 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         );
     }
 
-    private static Map<String, byte[]> getMCSharpMetadata(MCSharpMinecraftMap mcSharpMap) {
-        Map<String, byte[]> metadata;
-        byte[] visitPermission, buildPermission;
-
-        metadata = getDefaultMetadata();
-        visitPermission = new byte[1];
-        buildPermission = new byte[1];
-        visitPermission[0] = (byte)mcSharpMap.getVisitPermission().CODE;
-        buildPermission[0] = (byte)mcSharpMap.getBuildPermission().CODE;
-        metadata.put("mcmaplib_mcsharp_visitPermission", visitPermission);
-        metadata.put("mcmaplib_mcsharp_buildPermission", buildPermission);
-        return metadata;
-    }
-    
-    public RUMMinecraftMap(MCSharpMinecraftMap mcSharpMap) throws InvalidMapException {
-        this(
-            mcSharpMap.getWidth(),
-            mcSharpMap.getHeight(),
-            mcSharpMap.getDepth(),
-            mcSharpMap.getSpawnWidth(),
-            mcSharpMap.getSpawnHeight(),
-            mcSharpMap.getSpawnDepth(),
-            mcSharpMap.getSpawnRotation(),
-            mcSharpMap.getSpawnPitch(),
-            getDefaultMetadata(),
-            extendBlocks(mcSharpMap.getBlocks(), 2),
-            2
-        );
-    }
 
     private static RUMMinecraftMap loadVersion1(InputStream in)
             throws IOException, EOFException, MapFormatException, NotImplementedException {
@@ -321,27 +293,34 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         return map;
     }
 
+    public static RUMMinecraftMap load(InputStream in)
+            throws IOException, MapFormatException, NotImplementedException {
+        RUMMinecraftMap map;
+        ExtendedDataInputStream dis;
+        long version;
+
+        dis = new ExtendedDataInputStream(in);
+        try {
+            version = dis.readUnsignedInt();
+            if(version == VERSION_1) {
+                map = loadVersion1(dis);
+            } else {
+                throw new NotImplementedException("Unsupported file version");
+            }
+        } finally {
+            dis.close();
+        }
+        return map;
+    }
+
     public static RUMMinecraftMap load(File file)
             throws IOException, MapFormatException, NotImplementedException {
         RUMMinecraftMap map;
         FileInputStream fis;
-        long version;
 
         fis = new FileInputStream(file);
         try {
-            ExtendedDataInputStream din;
-            
-            din = new ExtendedDataInputStream(fis);
-            try {
-                version = din.readUnsignedInt();
-                if(version == SUPPORTED_VERSIONS[0]) {
-                    map = loadVersion1(din);
-                } else {
-                    throw new NotImplementedException("Unsupported file version");
-                }
-            } finally {
-                din.close();
-            }
+            map = load(fis);
         } catch(EOFException e) {
             throw new MapFormatException("Map file incomplete", e);
         } finally {
@@ -418,31 +397,43 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         }
     }
 
+    public void save(OutputStream out, long version)
+            throws IOException, NotImplementedException {
+        ExtendedDataOutputStream dos;
+
+        dos = new ExtendedDataOutputStream(out);
+        try {
+            dos.writeUnsignedInt(version);
+            if(version == SUPPORTED_VERSIONS[0])
+                saveVersion1(out);
+            else
+                throw new NotImplementedException("Cannot save map, unsupported version");
+        } finally {
+            dos.close();
+        }
+    }
+
+    @Override
     public void save(File file)
             throws IOException, NotImplementedException {
         save(file, CURRENT_VERSION);
     }
 
+    @Override
+    public void save(OutputStream out)
+            throws IOException, NotImplementedException {
+        save(out, CURRENT_VERSION);
+    }
+
     public void save(File file, long version)
             throws IOException, NotImplementedException {
-        OutputStream out;
+        OutputStream fos;
         
-        out = new FileOutputStream(file);
+        fos = new FileOutputStream(file);
         try {
-            ExtendedDataOutputStream dos;
-            
-            dos = new ExtendedDataOutputStream(out);
-            try {
-                dos.writeUnsignedInt(version);
-                if(version == SUPPORTED_VERSIONS[0])
-                    saveVersion1(out);
-                else
-                    throw new NotImplementedException("Cannot save map, unsupported version");
-            } finally {
-                dos.close();
-            }
+            save(fos, version);
         } finally {
-            out.close();
+            fos.close();
         }
     }
 

@@ -7,13 +7,16 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.DataInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import mcmaplib.util.ExtendedDataOutputStream;
 
 public class MCSharpMinecraftMap extends MinecraftMapBase {
     public static final int[] SUPPORTED_VERSIONS = new int[]{
         1874
     };
-    public static final int CURRENT_VERSION = SUPPORTED_VERSIONS[0];
+    public static final int VERSION_1 = SUPPORTED_VERSIONS[0],
+                            CURRENT_VERSION = VERSION_1;
 
 
     public static enum LevelPermission {
@@ -109,60 +112,6 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         );
     }
 
-    private static LevelPermission getRUMMapPermission(RUMMinecraftMap map, String name) {
-        byte[] permissionData;
-        short permissionCode;
-        LevelPermission permission;
-
-        permissionData = map.getMetadata(name);
-        if(permissionData.length > 0) {
-            permissionCode = permissionData[0];
-            if(permissionCode < 0)
-                permissionCode = (short)((- permissionCode) + 0x80);
-            permission = LevelPermission.fromCode(permissionCode);
-        } else
-            permission = LevelPermission.NULL;
-        return permission;
-    }
-
-    private static LevelPermission getRUMMapVisitPermission(RUMMinecraftMap rumMap) {
-        LevelPermission visitPermission;
-        byte[] originData;
-        String origin;
-        
-        originData = rumMap.getMetadata("_origin");
-        if(originData != null) {
-            origin = new String(originData);
-            if(origin.equals("mcmaplib"))
-                visitPermission = getRUMMapPermission(rumMap, "mcmaplib_mcsharp_visitPermission");
-            else
-                visitPermission = LevelPermission.NULL;
-        } else {
-            visitPermission = LevelPermission.NULL;
-        }
-        return visitPermission;
-    }
-
-    private static LevelPermission getRUMMapBuildPermission(RUMMinecraftMap rumMap) {
-        return getRUMMapPermission(rumMap, "mcmaplib_mcsharp_buildPermission");
-    }
-
-    public MCSharpMinecraftMap(RUMMinecraftMap rumMap) throws InvalidMapException {
-        this(
-            rumMap.getBlocks(),
-            rumMap.getWidth(),
-            rumMap.getHeight(),
-            rumMap.getDepth(),
-            rumMap.getSpawnWidth(),
-            rumMap.getSpawnHeight(),
-            rumMap.getSpawnDepth(),
-            rumMap.getSpawnRotation(),
-            rumMap.getSpawnPitch(),
-            getRUMMapVisitPermission(rumMap),
-            getRUMMapBuildPermission(rumMap)
-        );
-    }
-
     private static MCSharpMinecraftMap loadVersion1(DataInputStream din)
             throws IOException, EOFException, MapFormatException, NotImplementedException {
         MCSharpMinecraftMap map;
@@ -232,30 +181,38 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         return map;
     }
 
+    public static MCSharpMinecraftMap load(InputStream in)
+            throws IOException, MapFormatException, NotImplementedException {
+        MCSharpMinecraftMap map;
+        DataInputStream dis;
+        int version;
+
+        dis = new DataInputStream(in);
+        try {
+            version = dis.readUnsignedShort();
+            if(version == SUPPORTED_VERSIONS[0]) {
+                map = loadVersion1(dis);
+            } else {
+                throw new NotImplementedException("Map version unsupported");
+            }
+        } finally {
+            dis.close();
+        }
+        return map;
+    }
+
     public static MCSharpMinecraftMap load(File file)
             throws IOException, MapFormatException, NotImplementedException {
         MCSharpMinecraftMap map;
-        FileInputStream fin;
-        DataInputStream din;
-        int version;
+        FileInputStream fis;
 
-        fin = new FileInputStream(file);
+        fis = new FileInputStream(file);
         try {
-            din = new DataInputStream(fin);
-            try {
-                version = din.readUnsignedShort();
-                if(version == SUPPORTED_VERSIONS[0]) {
-                    map = loadVersion1(din);
-                } else {
-                    throw new NotImplementedException("Map version unsupported");
-                }
-            } finally {
-                din.close();
-            }
+            map = load(fis);
         } catch(EOFException e) {
             throw new MapFormatException("Map file incomplete", e);
         } finally {
-            fin.close();
+            fis.close();
         }
         return map;
     }
@@ -278,28 +235,38 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         dos.write(getBlocks());
     }
 
+    public void save(OutputStream out, int version) throws IOException, NotImplementedException {
+        ExtendedDataOutputStream dos;
+
+        dos = new ExtendedDataOutputStream(out);
+        try {
+            if(version == SUPPORTED_VERSIONS[0]) {
+                dos.writeUnsignedShort(version);
+                saveVersion1(dos);
+            } else
+                throw new NotImplementedException("Unknown file version");
+        } finally {
+            dos.close();
+        }
+    }
+
     public void save(File file, int version) throws IOException, NotImplementedException {
         FileOutputStream fos;
 
         fos = new FileOutputStream(file);
         try {
-            ExtendedDataOutputStream dos;
-            
-            dos = new ExtendedDataOutputStream(fos);
-            try {
-                if(version == SUPPORTED_VERSIONS[0]) {
-                    dos.writeUnsignedShort(version);
-                    saveVersion1(dos);
-                } else
-                    throw new NotImplementedException("Unknown file version");
-            } finally {
-                dos.close();
-            }
+            save(fos, version);
         } finally {
             fos.close();
         }
     }
 
+    @Override
+    public void save(OutputStream out) throws IOException {
+        save(out, CURRENT_VERSION);
+    }
+
+    @Override
     public void save(File file) throws IOException {
         save(file, CURRENT_VERSION);
     }

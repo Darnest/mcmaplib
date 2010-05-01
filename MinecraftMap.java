@@ -1,5 +1,9 @@
 package mcmaplib;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
 
 public abstract class MinecraftMap implements Cloneable, Serializable {
@@ -40,6 +44,21 @@ public abstract class MinecraftMap implements Cloneable, Serializable {
     public abstract short getSpawnRotation();
     public abstract short getSpawnPitch();
 
+    public void save(File file) throws IOException, NotImplementedException {
+        FileOutputStream fos;
+
+        fos = new FileOutputStream(file);
+        try {
+            save(fos);
+        } finally {
+            fos.close();
+        }
+    }
+
+    public void save(OutputStream out) throws IOException, NotImplementedException {
+        throw new NotImplementedException("Saving not implemented for this map format");
+    }
+    
     @Override
     public abstract MinecraftMap clone();
 }
