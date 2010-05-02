@@ -5,12 +5,19 @@ import java.io.IOException;
 import java.io.EOFException;
 import java.io.FileInputStream;
 import java.io.DataInputStream;
+import java.io.FileOutputStream;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.util.zip.GZIPInputStream;
 import mcmaplib.util.ExtendedDataInputStream;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.io.ObjectStreamClass;
+import java.io.ObjectStreamConstants;
+import java.io.ObjectStreamField;
+import java.io.OutputStream;
+import java.util.zip.GZIPOutputStream;
+import mcmaplib.util.ExtendedDataOutputStream;
 
 public class DatMinecraftMap extends MinecraftMapBase {
     private static final long MAGIC = 0x271bb788;
@@ -57,9 +64,9 @@ public class DatMinecraftMap extends MinecraftMapBase {
         try {
            level = (Level)ois.readObject();
         } catch(ClassNotFoundException e) {
-            throw new MapFormatException("Dat file corrupted", e);
+            throw new MapFormatException("Holds wrong java serialized object", e);
         } catch(ClassCastException e)  {
-            throw new MapFormatException("Dat file corrupted", e);
+            throw new MapFormatException("Holds wrong java serialized object", e);
         }
 
         try {
@@ -75,7 +82,7 @@ public class DatMinecraftMap extends MinecraftMapBase {
                 150
             );
         } catch(InvalidMapException e) {
-            throw new MapFormatException("Dat file corrupted", e);
+            throw new MapFormatException(e.getMessage(), e);
         }
         return map;
     }
@@ -104,28 +111,79 @@ public class DatMinecraftMap extends MinecraftMapBase {
             ExtendedDataInputStream dis;
 
             dis = new ExtendedDataInputStream(gis);
-            try {
-                long magic;
-                short version;
 
-                magic = dis.readUnsignedInt();
-                if(magic != MAGIC)
-                    throw new MapFormatException("Wrong magic constant");
+            long magic;
+            short version;
 
-                version = (short)dis.readUnsignedByte();
-                if(version == VERSION_2)
-                    map = loadVersion2(dis);
-                else
+            magic = dis.readUnsignedInt();
+            if(magic != MAGIC)
+                throw new MapFormatException("Wrong magic constant");
+
+            version = (short)dis.readUnsignedByte();
+            if(version == VERSION_2)
+                map = loadVersion2(dis);
+            else
                     throw new NotImplementedException("Unsupported version");
-            } finally {
-                dis.close();
-            }
         } catch(EOFException e) {
             throw new MapFormatException("Map file incomplete", e);
-        } finally {
-            gis.close();
         }
         return map;
+    }
+
+    public void save(File file, int version)
+            throws IOException, NotImplementedException{
+        FileOutputStream fos;
+
+        fos = new FileOutputStream(file);
+        try {
+            save(fos, version);
+        } finally {
+            fos.close();
+        }
+    }
+
+    public void saveVersion2(OutputStream out)
+            throws IOException, NotImplementedException {
+        ExtendedDataOutputStream dos;
+        LevelObjectOutputStream los;
+        GZIPOutputStream gos;
+        Level level;
+
+        gos = new GZIPOutputStream(out);
+        dos = new ExtendedDataOutputStream(gos);
+        dos.writeUnsignedInt(MAGIC);
+        dos.writeUnsignedByte(VERSION_2);
+
+        los = new LevelObjectOutputStream(dos);
+        level = new Level();
+        level.width = width;
+        level.height = height;
+        level.depth = depth;
+        level.blocks = blocks;
+        los.writeObject(level);
+        los.flush();
+        dos.flush();
+        gos.finish();
+    }
+
+    public void save(OutputStream out, int version)
+            throws IOException, NotImplementedException{
+        if(version == VERSION_2)
+            saveVersion2(out);
+        else
+            throw new NotImplementedException("Unsupported version");
+    }
+
+    @Override
+    public void save(File file)
+            throws IOException, NotImplementedException{
+        save(file, CURRENT_VERSION);
+    }
+
+    @Override
+    public void save(OutputStream out)
+            throws IOException, NotImplementedException{
+        save(out, CURRENT_VERSION);
     }
 }
 
@@ -137,11 +195,51 @@ class LevelObjectInputStream extends ObjectInputStream {
     @Override
     protected Class<?> resolveClass(ObjectStreamClass desc)
                          throws IOException, ClassNotFoundException {
-        String name = desc.getName();
+        String name;
+
+        name = desc.getName();
         if(name.equals("com.mojang.minecraft.level.Level")) {
             return Level.class;
         } else
             return super.resolveClass(desc);
+    }
+}
+
+class LevelObjectOutputStream extends ObjectOutputStream {
+    public LevelObjectOutputStream(OutputStream out) throws IOException {
+        super(out);
+    }
+
+    @Override
+    protected void writeClassDescriptor(ObjectStreamClass desc)
+                         throws IOException {
+        String name;
+        ObjectStreamField[] fields;
+
+        name = desc.getName();
+        fields = desc.getFields();
+        System.out.println("name: " + name);
+        if(name.equals("mcmaplib.Level")) {
+            System.out.println("special write");
+            writeUTF("com.mojang.minecraft.level.Level");
+            writeLong(desc.getSerialVersionUID());
+
+            byte flags = 0;
+            flags |= ObjectStreamConstants.SC_SERIALIZABLE;
+            flags |= ObjectStreamConstants.SC_WRITE_METHOD;
+            writeByte(flags);
+
+            writeShort(fields.length);
+            for (int i = 0; i < fields.length; i++) {
+                ObjectStreamField f = fields[i];
+                writeByte(f.getTypeCode());
+                writeUTF(f.getName());
+                if (!f.isPrimitive()) {
+                    writeUTF(f.getTypeString());
+                }
+            }
+        } else
+            super.writeClassDescriptor(desc);
     }
 }
 

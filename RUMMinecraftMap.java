@@ -332,69 +332,60 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     private void saveVersion1(OutputStream out)
             throws IOException, NotImplementedException {
         GZIPOutputStream gos;
+        ExtendedDataOutputStream dos;
 
         gos = new GZIPOutputStream(out);
-        try {
-            ExtendedDataOutputStream dos;
-            
-            dos = new ExtendedDataOutputStream(gos);
-            try {
-                dos.writeLEUnsignedShort(metadata.size());
-                {
-                    Collection<byte[]> payloads;
-                    Collection<String> names;
-                    Iterator<byte[]> payloadIterator;
-                    Iterator<String> nameIterator;
+        dos = new ExtendedDataOutputStream(gos);
+        dos.writeLEUnsignedShort(metadata.size());
+        {
+            Collection<byte[]> payloads;
+            Collection<String> names;
+            Iterator<byte[]> payloadIterator;
+            Iterator<String> nameIterator;
 
-                    payloads = metadata.values();
-                    names = metadata.keySet();
-                    payloadIterator = payloads.iterator();
-                    nameIterator = names.iterator();
-                    while(nameIterator.hasNext() && payloadIterator.hasNext()) {
-                        String name;
-                        byte[] payload;
+            payloads = metadata.values();
+            names = metadata.keySet();
+            payloadIterator = payloads.iterator();
+            nameIterator = names.iterator();
+            while(nameIterator.hasNext() && payloadIterator.hasNext()) {
+                String name;
+                byte[] payload;
 
-                        name = nameIterator.next();
-                        payload = payloadIterator.next();
+                name = nameIterator.next();
+                payload = payloadIterator.next();
 
-                        dos.writeLEUnsignedShort(name.length());
-                        dos.writeBytes(name);
-                        dos.writeLEUnsignedShort(payload.length);
-                        dos.write(payload);
-                    }
-                }
-
-                dos.writeLEUnsignedShort(width);
-                dos.writeLEUnsignedShort(height);
-                dos.writeLEUnsignedShort(depth);
-
-                dos.writeLEUnsignedShort(spawnWidth);
-                dos.writeLEUnsignedShort(spawnHeight);
-                dos.writeLEUnsignedShort(spawnDepth);
-
-                dos.writeLEUnsignedByte(spawnRotation);
-                dos.writeLEUnsignedByte(spawnPitch);
-                dos.writeLEUnsignedByte((short)(blockLength - 2));
-
-                {
-                    BigInteger blockDataLength;
-
-                    blockDataLength = BigInteger.valueOf(blockData.length)
-                            .multiply(BigInteger.valueOf(blockLength));
-
-                    dos.writeLEUnsignedBigInteger(blockDataLength, 8);
-                    for(int i = 0;i < blockData.length;i++) {
-                        dos.write(blockData[i]);
-                    }
-                }
-                dos.flush();
-                gos.finish();
-            } finally {
-                dos.close();
+                dos.writeLEUnsignedShort(name.length());
+                dos.writeBytes(name);
+                dos.writeLEUnsignedShort(payload.length);
+                dos.write(payload);
             }
-        } finally {
-            gos.close();
         }
+
+        dos.writeLEUnsignedShort(width);
+        dos.writeLEUnsignedShort(height);
+        dos.writeLEUnsignedShort(depth);
+
+        dos.writeLEUnsignedShort(spawnWidth);
+        dos.writeLEUnsignedShort(spawnHeight);
+        dos.writeLEUnsignedShort(spawnDepth);
+
+        dos.writeLEUnsignedByte(spawnRotation);
+        dos.writeLEUnsignedByte(spawnPitch);
+        dos.writeLEUnsignedByte((short)(blockLength - 2));
+
+        {
+            BigInteger blockDataLength;
+
+            blockDataLength = BigInteger.valueOf(blockData.length)
+                    .multiply(BigInteger.valueOf(blockLength));
+
+            dos.writeLEUnsignedBigInteger(blockDataLength, 8);
+            for(int i = 0;i < blockData.length;i++) {
+                dos.write(blockData[i]);
+            }
+        }
+        dos.flush();
+        gos.finish();
     }
 
     public void save(OutputStream out, long version)
@@ -402,15 +393,11 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         ExtendedDataOutputStream dos;
 
         dos = new ExtendedDataOutputStream(out);
-        try {
-            dos.writeUnsignedInt(version);
-            if(version == SUPPORTED_VERSIONS[0])
-                saveVersion1(out);
-            else
-                throw new NotImplementedException("Cannot save map, unsupported version");
-        } finally {
-            dos.close();
-        }
+        dos.writeUnsignedInt(version);
+        if(version == SUPPORTED_VERSIONS[0])
+            saveVersion1(out);
+        else
+            throw new NotImplementedException("Cannot save map, unsupported version");
     }
 
     @Override

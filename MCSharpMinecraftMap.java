@@ -112,7 +112,7 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         );
     }
 
-    private static MCSharpMinecraftMap loadVersion1(DataInputStream din)
+    private static MCSharpMinecraftMap loadVersion1(DataInputStream dis)
             throws IOException, EOFException, MapFormatException, NotImplementedException {
         MCSharpMinecraftMap map;
         int width, height, depth, spawnWidth, spawnHeight, spawnDepth;
@@ -120,20 +120,20 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         byte[] blocks;
         LevelPermission buildPermission, visitPermission;
 
-        width = din.readUnsignedShort();
-        height = din.readUnsignedShort();
-        depth = din.readUnsignedShort();
-        spawnWidth = din.readUnsignedShort();
-        spawnHeight = din.readUnsignedShort();
-        spawnDepth = din.readUnsignedShort();
-        spawnPitch = (short)din.readUnsignedByte();
-        spawnRotation = (short)din.readUnsignedByte();
+        width = dis.readUnsignedShort();
+        height = dis.readUnsignedShort();
+        depth = dis.readUnsignedShort();
+        spawnWidth = dis.readUnsignedShort();
+        spawnHeight = dis.readUnsignedShort();
+        spawnDepth = dis.readUnsignedShort();
+        spawnPitch = (short)dis.readUnsignedByte();
+        spawnRotation = (short)dis.readUnsignedByte();
 
         {
             short buildPermissionCode, visitPermissionCode;
 
-            visitPermissionCode = (short)din.readUnsignedByte();
-            buildPermissionCode = (short)din.readUnsignedByte();
+            visitPermissionCode = (short)dis.readUnsignedByte();
+            buildPermissionCode = (short)dis.readUnsignedByte();
             
             visitPermission = LevelPermission.fromCode(visitPermissionCode);
             buildPermission = LevelPermission.fromCode(buildPermissionCode);
@@ -160,7 +160,7 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
             while(read < blocks.length) {
                 int nread;
 
-                nread = din.read(blocks);
+                nread = dis.read(blocks);
                 if(nread == -1)
                     throw new EOFException();
                 read += nread;
@@ -188,15 +188,11 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         int version;
 
         dis = new DataInputStream(in);
-        try {
-            version = dis.readUnsignedShort();
-            if(version == SUPPORTED_VERSIONS[0]) {
-                map = loadVersion1(dis);
-            } else {
-                throw new NotImplementedException("Map version unsupported");
-            }
-        } finally {
-            dis.close();
+        version = dis.readUnsignedShort();
+        if(version == SUPPORTED_VERSIONS[0]) {
+            map = loadVersion1(dis);
+        } else {
+            throw new NotImplementedException("Map version unsupported");
         }
         return map;
     }
@@ -239,15 +235,11 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         ExtendedDataOutputStream dos;
 
         dos = new ExtendedDataOutputStream(out);
-        try {
-            if(version == SUPPORTED_VERSIONS[0]) {
-                dos.writeUnsignedShort(version);
-                saveVersion1(dos);
-            } else
-                throw new NotImplementedException("Unknown file version");
-        } finally {
-            dos.close();
-        }
+        if(version == SUPPORTED_VERSIONS[0]) {
+            dos.writeUnsignedShort(version);
+            saveVersion1(dos);
+        } else
+            throw new NotImplementedException("Unknown file version");
     }
 
     public void save(File file, int version) throws IOException, NotImplementedException {
