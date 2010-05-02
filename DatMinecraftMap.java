@@ -27,6 +27,14 @@ public class DatMinecraftMap extends MinecraftMapBase {
     public static final short VERSION_2 = SUPPORTED_VERSIONS[0],
                               CURRENT_VERSION = VERSION_2;
 
+    public static boolean isVersionSupported(long version) {
+        for(int i = 0;i < SUPPORTED_VERSIONS.length;i++) {
+            if(SUPPORTED_VERSIONS[i] == version)
+                return true;
+        }
+        return false;
+    }
+
     public DatMinecraftMap(byte[] blocks,
                            int width, int height, int depth,
                            int spawnWidth, int spawnHeight, int spawnDepth,
@@ -186,6 +194,15 @@ public class DatMinecraftMap extends MinecraftMapBase {
     public void save(OutputStream out)
             throws IOException, NotImplementedException{
         save(out, CURRENT_VERSION);
+    }
+
+    @Override
+    public DatMinecraftMap clone() {
+        try {
+            return new DatMinecraftMap(this);
+        } catch(InvalidMapException e) {
+            throw new RuntimeException("Could not clone map", e);
+        }
     }
 }
 

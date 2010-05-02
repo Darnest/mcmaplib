@@ -34,7 +34,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
                               PORTAL_BIT =   (byte)0x08,
                               SCRIPTED_BIT = (byte)0x04;
 
-    public static final long[] SUPPORTED_VERSIONS = new long[]{
+    private static final long[] SUPPORTED_VERSIONS = new long[] {
         0xAA000001L
     };
     public static final long VERSION_1 = SUPPORTED_VERSIONS[0],
