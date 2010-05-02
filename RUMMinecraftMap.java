@@ -172,111 +172,103 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
         GZIPInputStream gin;
 
         gin = new GZIPInputStream(in);
-        try {
-            ExtendedDataInputStream din;
+        ExtendedDataInputStream din;
 
-            din = new ExtendedDataInputStream(gin);
-            try {
-                BigInteger totalBlocks;
-                
+        din = new ExtendedDataInputStream(gin);
+        BigInteger totalBlocks;
+
+        {
+            int metadataLength;
+
+            metadataLength = din.readLEUnsignedShort();
+            metadata = Collections.synchronizedMap(
+                new HashMap<String, byte[]>(metadataLength)
+            );
+            for(int i = 0; i < metadataLength;i++) {
+                String name;
+                byte[] payload;
+
                 {
-                    int metadataLength;
+                    byte[] nameData;
+                    int read = 0, nameLength;
 
-                    metadataLength = din.readLEUnsignedShort();
-                    metadata = Collections.synchronizedMap(
-                        new HashMap<String, byte[]>(metadataLength)
-                    );
-                    for(int i = 0; i < metadataLength;i++) {
-                        String name;
-                        byte[] payload;
+                    nameLength = din.readLEUnsignedShort();
+                    nameData = new byte[nameLength];
+                    while(read < nameLength) {
+                        int nread;
+                        nread = din.read(nameData, read, nameLength - read);
+                        if(nread == -1)
+                            throw new EOFException();
+                        read += nread;
+                    }
+                    name = new String(nameData);
+                }
 
-                        {
-                            byte[] nameData;
-                            int read = 0, nameLength;
+                {
+                    int read = 0, payloadLength;
 
-                            nameLength = din.readLEUnsignedShort();
-                            nameData = new byte[nameLength];
-                            while(read < nameLength) {
-                                int nread;
-                                nread = din.read(nameData, read, nameLength - read);
-                                if(nread == -1)
-                                    throw new EOFException();
-                                read += nread;
-                            }
-                            name = new String(nameData);
-                        }
-
-                        {
-                            int read = 0, payloadLength;
-
-                            payloadLength = din.readLEUnsignedShort();
-                            payload = new byte[payloadLength];
-                            while(read < payloadLength) {
-                                int nread;
-                                nread = din.read(payload, read, payloadLength - read);
-                                if(nread == -1)
-                                    throw new EOFException();
-                                read += nread;
-                            }
-                        }
-
-                        metadata.put(name, payload);
+                    payloadLength = din.readLEUnsignedShort();
+                    payload = new byte[payloadLength];
+                    while(read < payloadLength) {
+                        int nread;
+                        nread = din.read(payload, read, payloadLength - read);
+                        if(nread == -1)
+                            throw new EOFException();
+                        read += nread;
                     }
                 }
 
-                width = din.readLEUnsignedShort();
-                height = din.readLEUnsignedShort();
-                depth = din.readLEUnsignedShort();
-
-                spawnWidth = din.readLEUnsignedShort();
-                spawnHeight = din.readLEUnsignedShort();
-                spawnDepth = din.readLEUnsignedShort();
-
-                spawnRotation = (short)din.readLEUnsignedByte();
-                spawnPitch = (short)din.readLEUnsignedByte();
-
-                blockLength = (short)(2 + din.readLEUnsignedByte());
-
-                totalBlocks = BigInteger.valueOf(width)
-                    .multiply(BigInteger.valueOf(height))
-                    .multiply(BigInteger.valueOf(depth));
-
-                if(totalBlocks.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1)
-                    throw new MapFormatException("Width, height, and depth are too long");
-
-                {
-                    int read = 0, blocksRead = 0, intTotalBlocks;
-                    BigInteger dataLength, currentDataLength;
-
-                    intTotalBlocks = totalBlocks.intValue();
-
-                    dataLength = din.readLEUnsignedBigInteger(8);
-                    currentDataLength = totalBlocks.multiply(BigInteger.valueOf(blockLength));
-
-                    if(dataLength.compareTo(currentDataLength) != 0)
-                        throw new MapFormatException("Block data array has incorrect size");
-
-                    blockData = new byte[intTotalBlocks][blockLength];
-                    while(blocksRead < intTotalBlocks) {
-                            int nread;
-                            nread = din.read(blockData[blocksRead], read, blockLength - read);
-                            if(nread == -1)
-                                throw new EOFException();
-                            read += nread;
-                            if(read == blockLength) {
-                                read = 0;
-                                blocksRead++;
-                            }
-                    }
-
-                    if(din.read() != -1)
-                        throw new EOFException();
-                }
-            } finally {
-                din.close();
+                metadata.put(name, payload);
             }
-        } finally {
-            gin.close();
+        }
+
+        width = din.readLEUnsignedShort();
+        height = din.readLEUnsignedShort();
+        depth = din.readLEUnsignedShort();
+
+        spawnWidth = din.readLEUnsignedShort();
+        spawnHeight = din.readLEUnsignedShort();
+        spawnDepth = din.readLEUnsignedShort();
+
+        spawnRotation = (short)din.readLEUnsignedByte();
+        spawnPitch = (short)din.readLEUnsignedByte();
+
+        blockLength = (short)(2 + din.readLEUnsignedByte());
+
+        totalBlocks = BigInteger.valueOf(width)
+            .multiply(BigInteger.valueOf(height))
+            .multiply(BigInteger.valueOf(depth));
+
+        if(totalBlocks.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1)
+            throw new MapFormatException("Width, height, and depth are too long");
+
+        {
+            int read = 0, blocksRead = 0, intTotalBlocks;
+            BigInteger dataLength, currentDataLength;
+
+            intTotalBlocks = totalBlocks.intValue();
+
+            dataLength = din.readLEUnsignedBigInteger(8);
+            currentDataLength = totalBlocks.multiply(BigInteger.valueOf(blockLength));
+
+            if(dataLength.compareTo(currentDataLength) != 0)
+                throw new MapFormatException("Block data array has incorrect size");
+
+            blockData = new byte[intTotalBlocks][blockLength];
+            while(blocksRead < intTotalBlocks) {
+                    int nread;
+                    nread = din.read(blockData[blocksRead], read, blockLength - read);
+                    if(nread == -1)
+                        throw new EOFException();
+                    read += nread;
+                    if(read == blockLength) {
+                        read = 0;
+                        blocksRead++;
+                    }
+            }
+
+            if(din.read() != -1)
+                throw new EOFException();
         }
 
         try {

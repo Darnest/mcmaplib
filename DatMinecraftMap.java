@@ -82,7 +82,7 @@ public class DatMinecraftMap extends MinecraftMapBase {
                 150
             );
         } catch(InvalidMapException e) {
-            throw new MapFormatException(e.getMessage(), e);
+            throw new MapFormatException("Invalid map data: " + e.getMessage(), e);
         }
         return map;
     }
@@ -109,11 +109,10 @@ public class DatMinecraftMap extends MinecraftMapBase {
         gis = new GZIPInputStream(in);
         try {
             ExtendedDataInputStream dis;
-
-            dis = new ExtendedDataInputStream(gis);
-
             long magic;
             short version;
+
+            dis = new ExtendedDataInputStream(gis);
 
             magic = dis.readUnsignedInt();
             if(magic != MAGIC)
@@ -160,6 +159,9 @@ public class DatMinecraftMap extends MinecraftMapBase {
         level.height = height;
         level.depth = depth;
         level.blocks = blocks;
+        level.xSpawn = spawnWidth;
+        level.ySpawn = spawnHeight;
+        level.zSpawn = spawnDepth;
         los.writeObject(level);
         los.flush();
         dos.flush();
@@ -218,15 +220,12 @@ class LevelObjectOutputStream extends ObjectOutputStream {
 
         name = desc.getName();
         fields = desc.getFields();
-        System.out.println("name: " + name);
         if(name.equals("mcmaplib.Level")) {
-            System.out.println("special write");
             writeUTF("com.mojang.minecraft.level.Level");
             writeLong(desc.getSerialVersionUID());
 
             byte flags = 0;
             flags |= ObjectStreamConstants.SC_SERIALIZABLE;
-            flags |= ObjectStreamConstants.SC_WRITE_METHOD;
             writeByte(flags);
 
             writeShort(fields.length);
@@ -235,7 +234,11 @@ class LevelObjectOutputStream extends ObjectOutputStream {
                 writeByte(f.getTypeCode());
                 writeUTF(f.getName());
                 if (!f.isPrimitive()) {
-                    writeUTF(f.getTypeString());
+                    String typeString;
+
+                    typeString = f.getTypeString();
+                    writeByte(TC_STRING);
+                    writeUTF(typeString);
                 }
             }
         } else
