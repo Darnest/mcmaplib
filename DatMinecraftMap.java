@@ -123,7 +123,7 @@ public class DatMinecraftMap extends MinecraftMapBase {
             if(version == VERSION_2)
                 map = loadVersion2(dis);
             else
-                    throw new NotImplementedException("Unsupported version");
+                throw new NotImplementedException("Unsupported version");
         } catch(EOFException e) {
             throw new MapFormatException("Map file incomplete", e);
         }
@@ -212,7 +212,7 @@ class LevelObjectOutputStream extends ObjectOutputStream {
 
     @Override
     protected void writeClassDescriptor(ObjectStreamClass desc)
-                         throws IOException {
+         throws IOException {
         String name;
         ObjectStreamField[] fields;
 
