@@ -5,10 +5,12 @@ import java.io.IOException;
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.DataInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import mcmaplib.util.ExtendedDataInputStream;
 import mcmaplib.util.ExtendedDataOutputStream;
 
 public class MCSharpMinecraftMap extends MinecraftMapBase {
@@ -26,6 +28,59 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         return false;
     }
 
+    public static enum SpecialBlock {
+        OP_GLASS(100, 20),
+        OP_OBSIDIAN(101, 49),
+        OP_BRICK(102, 45),
+        OP_STONE(103, 1),
+        OP_COBBLESTONE(104, 4),
+        OP_AIR(105, 0),
+        OP_WATER(106, 9),
+        WOOD_FLOAT(110, 5),
+        DOOR_TREE(111, 17),
+        UNKNOWN_1(112, 10),
+        DOOR_OBSIDIAN(113, 49),
+        DOOR_GLASS(114, 20),
+        AIR_FLOOD(200, 0),
+        DOOR_AIR(201, 0),
+        AIR_FLOOD_LAYER(202, 0),
+        AIR_FLOOD_DOWN(203, 0),
+        AIR_FLOOD_UP(204, 0),
+        DOOR2_AIR(205, 0),
+        DOOR3_AIR(206, 0);
+
+        private static volatile SpecialBlock[] specialBlocks;
+        public final short CODE, NORMAL_CODE;
+
+        private static void addSpecialBlock(SpecialBlock specialBlock) {
+            if(specialBlocks == null)
+                specialBlocks = new SpecialBlock[255];
+            specialBlocks[specialBlock.CODE] = specialBlock;
+        }
+        
+        SpecialBlock(int code, int normal_code) {
+            CODE = (short)code;
+            NORMAL_CODE = (short)normal_code;
+            addSpecialBlock(this);
+        }
+
+        public static SpecialBlock getSpecialBlock(int code) {
+            if(code < specialBlocks.length)
+                return specialBlocks[code];
+            else
+                return null;
+        }
+
+        public static int convertToNormalBlock(int code) {
+            SpecialBlock special;
+
+            special = getSpecialBlock(code);
+            if(special != null)
+                code = special.NORMAL_CODE;
+
+            return code;
+        }
+    }
 
     public static enum LevelPermission {
         NULL(0x99),
@@ -120,7 +175,7 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         );
     }
 
-    private static MCSharpMinecraftMap loadVersion1(DataInputStream dis)
+    private static MCSharpMinecraftMap loadVersion1(ExtendedDataInputStream dis)
             throws IOException, EOFException, MapFormatException, NotImplementedException {
         MCSharpMinecraftMap map;
         int width, height, depth, spawnWidth, spawnHeight, spawnDepth;
@@ -128,12 +183,12 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
         byte[] blocks;
         LevelPermission buildPermission, visitPermission;
 
-        width = dis.readUnsignedShort();
-        height = dis.readUnsignedShort();
-        depth = dis.readUnsignedShort();
-        spawnWidth = dis.readUnsignedShort();
-        spawnHeight = dis.readUnsignedShort();
-        spawnDepth = dis.readUnsignedShort();
+        width = dis.readLEUnsignedShort();
+        height = dis.readLEUnsignedShort();
+        depth = dis.readLEUnsignedShort();
+        spawnWidth = dis.readLEUnsignedShort();
+        spawnHeight = dis.readLEUnsignedShort();
+        spawnDepth = dis.readLEUnsignedShort();
         spawnPitch = (short)dis.readUnsignedByte();
         spawnRotation = (short)dis.readUnsignedByte();
 
@@ -162,18 +217,7 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
             blocks = new byte[intTotalBlocks];
         }
 
-        {
-            int read = 0;
-
-            while(read < blocks.length) {
-                int nread;
-
-                nread = dis.read(blocks);
-                if(nread == -1)
-                    throw new EOFException();
-                read += nread;
-            }
-        }
+        dis.readFully(blocks);
 
         try {
             map = new MCSharpMinecraftMap(
@@ -192,12 +236,14 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
     public static MCSharpMinecraftMap load(InputStream in)
             throws IOException, MapFormatException, NotImplementedException {
         MCSharpMinecraftMap map;
-        DataInputStream dis;
+        ExtendedDataInputStream dis;
+        GZIPInputStream gis;
         int version;
 
-        dis = new DataInputStream(in);
-        version = dis.readUnsignedShort();
-        if(version == SUPPORTED_VERSIONS[0]) {
+        gis = new GZIPInputStream(in);
+        dis = new ExtendedDataInputStream(gis);
+        version = dis.readLEUnsignedShort();
+        if(version == VERSION_1) {
             map = loadVersion1(dis);
         } else {
             throw new NotImplementedException("Map version unsupported");
@@ -222,13 +268,13 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
     }
 
     private void saveVersion1(ExtendedDataOutputStream dos) throws IOException {
-        dos.writeUnsignedShort(width);
-        dos.writeUnsignedShort(height);
-        dos.writeUnsignedShort(depth);
+        dos.writeLEUnsignedShort(width);
+        dos.writeLEUnsignedShort(height);
+        dos.writeLEUnsignedShort(depth);
 
-        dos.writeUnsignedShort(spawnWidth);
-        dos.writeUnsignedShort(spawnHeight);
-        dos.writeUnsignedShort(spawnDepth);
+        dos.writeLEUnsignedShort(spawnWidth);
+        dos.writeLEUnsignedShort(spawnHeight);
+        dos.writeLEUnsignedShort(spawnDepth);
 
         dos.writeUnsignedByte(spawnPitch);
         dos.writeUnsignedByte(spawnRotation);
@@ -241,13 +287,18 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
 
     public void save(OutputStream out, int version) throws IOException, NotImplementedException {
         ExtendedDataOutputStream dos;
+        GZIPOutputStream gos;
 
-        dos = new ExtendedDataOutputStream(out);
-        if(version == SUPPORTED_VERSIONS[0]) {
-            dos.writeUnsignedShort(version);
+        gos = new GZIPOutputStream(out);
+        dos = new ExtendedDataOutputStream(gos);
+        if(version == VERSION_1) {
+            dos.writeLEUnsignedShort(version);
             saveVersion1(dos);
         } else
             throw new NotImplementedException("Unknown file version");
+        dos.flush();
+        gos.finish();
+        gos.flush();
     }
 
     public void save(File file, int version) throws IOException, NotImplementedException {
@@ -293,6 +344,48 @@ public class MCSharpMinecraftMap extends MinecraftMapBase {
 
     public void setBuildPermission(LevelPermission buildPermission) {
         this.buildPermission = buildPermission;
+    }
+
+    @Override
+    public byte getBlock(int width, int height, int depth) {
+        int offset;
+
+        if(isOutOfBounds(width, height, depth))
+            throw new IndexOutOfBoundsException("attempting to access block outside map boundries");
+
+        offset = getBlockOffset(width, height, depth);
+
+        return (byte)SpecialBlock.convertToNormalBlock(blocks[offset]);
+    }
+
+    public byte getBlockSpecial(int width, int height, int depth) {
+        int offset;
+
+        if(isOutOfBounds(width, height, depth))
+            throw new IndexOutOfBoundsException("attempting to access block outside map boundries");
+
+        offset = getBlockOffset(width, height, depth);
+
+        return blocks[offset];
+    }
+
+    @Override
+    public byte[] getBlocks() {
+        byte[] newBlocks;
+
+        newBlocks = new byte[blocks.length];
+        for(int i = 0;i < blocks.length;i++)
+            newBlocks[i] = (byte)SpecialBlock.convertToNormalBlock(blocks[i]);
+        return newBlocks;
+    }
+
+    public byte[] getBlocksSpecial() {
+        byte[] newBlocks;
+
+        newBlocks = new byte[blocks.length];
+        for(int i = 0;i < blocks.length;i++)
+            newBlocks[i] = blocks[i];
+        return newBlocks;
     }
 
     @Override

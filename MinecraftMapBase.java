@@ -1,7 +1,5 @@
 package mcmaplib;
 
-import java.util.Arrays;
-
 public class MinecraftMapBase extends MinecraftMap {
     protected final int width, height, depth;
     protected volatile int spawnWidth, spawnHeight, spawnDepth;
@@ -74,7 +72,7 @@ public class MinecraftMapBase extends MinecraftMap {
 
     public boolean isOutOfBounds(int width, int height, int depth) {
         if(width < 0 || height < 0 || depth < 0
-                || width >= this.width || height >= this.height || depth >= this.depth)
+                || width > this.width || height > this.height || depth > this.depth)
             return true;
         else
             return false;
@@ -157,7 +155,12 @@ public class MinecraftMapBase extends MinecraftMap {
     
 
     public byte[] getBlocks() {
-        return Arrays.copyOf(blocks, blocks.length);
+        byte[] newBlocks;
+
+        newBlocks = new byte[blocks.length];
+        for(int i = 0;i < blocks.length;i++)
+            newBlocks[i] = blocks[i];
+        return newBlocks;
     }
 
     @Override

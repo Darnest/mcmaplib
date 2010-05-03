@@ -1,5 +1,6 @@
 package mcmaplib;
 
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.EOFException;
@@ -9,9 +10,17 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.io.DataInputStream;
 import java.util.Iterator;
 import java.io.DataOutputStream;
+import java.io.FileNotFoundException;
+import java.math.BigInteger;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+import mcmaplib.util.ExtendedDataInputStream;
+import mcmaplib.util.ExtendedDataOutputStream;
 
 public class FCraftMinecraftMap extends MinecraftMapBase {
     private static final int[] SUPPORTED_VERSIONS = new int[] {
@@ -19,6 +28,44 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
     };
     public static final int VERSION_2 = SUPPORTED_VERSIONS[0],
                             CURRENT_VERSION = VERSION_2;
+
+    private final static Set<String> EXTENSIONS;
+    private final static String NAME = "fCraft",
+                                DESCRIPTION = "Map format for fCraft";
+
+    static {
+        Set<String> extensions = new HashSet<String>();
+        extensions.add("fcm");
+        EXTENSIONS = Collections.unmodifiableSet(extensions);
+    }
+
+    public static MapFormat FORMAT = new MapFormat() {
+        public String getName() {
+            return NAME;
+        }
+
+        public String getDescription() {
+            return DESCRIPTION;
+        }
+
+        public Set<String> getExtensions() {
+            return EXTENSIONS;
+        }
+
+        public FCraftMinecraftMap load(File file)
+                throws IOException,
+                       NotImplementedException,
+                       MapFormatException,
+                       FileNotFoundException {
+            return FCraftMinecraftMap.load(file);
+        }
+
+        public FCraftMinecraftMap convert(MinecraftMap map)
+                throws InvalidMapException {
+            return new FCraftMinecraftMap(map);
+        }
+    };
+
 
     public static boolean isVersionSupported(long version) {
         for(int i = 0;i < SUPPORTED_VERSIONS.length;i++) {
@@ -77,36 +124,36 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
 
     private static FCraftMinecraftMap loadVersion2(InputStream in)
             throws IOException, NotImplementedException, MapFormatException {
-        DataInputStream dis;
+        ExtendedDataInputStream dis;
         FCraftMinecraftMap map;
         int width, height, depth, spawnWidth, spawnHeight, spawnDepth;
         short spawnRotation, spawnPitch;
         byte[] blocks;
         Map<String, String> metadata;
 
-        dis = new DataInputStream(in);
+        dis = new ExtendedDataInputStream(in);
 
-        width = dis.readUnsignedShort();
-        height = dis.readUnsignedShort();
-        depth = dis.readUnsignedShort();
-        spawnWidth = dis.readUnsignedShort();
-        spawnHeight = dis.readUnsignedShort();
-        spawnDepth = dis.readUnsignedShort();
+        width = dis.readLEUnsignedShort();
+        height = dis.readLEUnsignedShort();
+        depth = dis.readLEUnsignedShort();
+        spawnWidth = dis.readLEUnsignedShort();
+        spawnHeight = dis.readLEUnsignedShort();
+        spawnDepth = dis.readLEUnsignedShort();
         spawnRotation = (short)dis.readUnsignedByte();
         spawnPitch = (short)dis.readUnsignedByte();
 
         {
             int metadataSize;
-            String key, value;
 
-            metadataSize = dis.readUnsignedShort();
+            metadataSize = dis.readLEUnsignedShort();
             metadata = new HashMap<String, String>(metadataSize);
             for(int i = 0; i < metadataSize;i++) {
+                String key, value;
                 {
                     int keySize;
                     byte[] keydata;
 
-                    keySize = dis.readUnsignedShort();
+                    keySize = dis.readLEUnsignedShort();
                     keydata = new byte[keySize];
                     dis.readFully(keydata);
                     key = new String(keydata);
@@ -115,7 +162,7 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
                     int valueSize;
                     byte[] valuedata;
 
-                    valueSize = dis.readUnsignedShort();
+                    valueSize = dis.readLEUnsignedShort();
                     valuedata = new byte[valueSize];
                     dis.readFully(valuedata);
                     value = new String(valuedata);
@@ -124,11 +171,27 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
             }
         }
         {
-            int blockSize;
+            BigInteger totalBlocks;
+            int intTotalBlocks;
 
-            blockSize = dis.readInt();
-            blocks = new byte[blockSize];
-            dis.readFully(blocks);
+            totalBlocks = BigInteger.valueOf(width)
+                .multiply(BigInteger.valueOf(height))
+                .multiply(BigInteger.valueOf(depth));
+
+            if(totalBlocks.compareTo(BigInteger.valueOf(Integer.MAX_VALUE)) == 1)
+                throw new MapFormatException("Width, height, and depth are too large");
+
+            intTotalBlocks = totalBlocks.intValue();
+            blocks = new byte[intTotalBlocks];
+        }
+
+        {
+            GZIPInputStream gis;
+            DataInputStream gdis;
+
+            gis = new GZIPInputStream(dis);
+            gdis = new DataInputStream(gis);
+            gdis.readFully(blocks);
         }
 
         try {
@@ -154,7 +217,11 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
         try {
             map = load(fis);
         } catch(EOFException e) {
+            e.printStackTrace();
             throw new MapFormatException("Map data incomplete");
+        } catch(IOException e) {
+            e.printStackTrace();
+            throw e;
         } finally {
             fis.close();
         }
@@ -180,11 +247,11 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
     public static FCraftMinecraftMap load(InputStream in)
             throws IOException, NotImplementedException, MapFormatException {
         FCraftMinecraftMap map;
-        DataInputStream dis;
+        ExtendedDataInputStream dis;
         int version;
 
-        dis = new DataInputStream(in);
-        version = dis.readInt();
+        dis = new ExtendedDataInputStream(in);
+        version = (int)dis.readLEUnsignedInt();
         if(version == VERSION_2)
             map = loadVersion2(dis);
         else
@@ -207,19 +274,19 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
 
     public void saveVersion2(OutputStream out)
             throws IOException, NotImplementedException {
-        DataOutputStream dos;
+        ExtendedDataOutputStream dos;
 
-        dos = new DataOutputStream(out);
-        dos.writeInt(VERSION_2);
-        dos.writeShort(width);
-        dos.writeShort(height);
-        dos.writeShort(depth);
-        dos.writeShort(spawnWidth);
-        dos.writeShort(spawnHeight);
-        dos.writeShort(spawnDepth);
+        dos = new ExtendedDataOutputStream(out);
+        dos.writeLEUnsignedInt(VERSION_2);
+        dos.writeLEUnsignedShort(width);
+        dos.writeLEUnsignedShort(height);
+        dos.writeLEUnsignedShort(depth);
+        dos.writeLEUnsignedShort(spawnWidth);
+        dos.writeLEUnsignedShort(spawnHeight);
+        dos.writeLEUnsignedShort(spawnDepth);
         dos.writeByte(spawnRotation);
         dos.writeByte(spawnPitch);
-        dos.writeShort(metadata.size());
+        dos.writeLEUnsignedShort(metadata.size());
 
         {
             Iterator<String> keys, values;
@@ -231,14 +298,22 @@ public class FCraftMinecraftMap extends MinecraftMapBase {
 
                 value = values.next();
                 key = keys.next();
-                dos.writeShort(key.length());
+                dos.writeLEUnsignedShort(key.length());
                 dos.writeBytes(key);
-                dos.writeShort(value.length());
+                dos.writeLEUnsignedShort(value.length());
                 dos.writeBytes(value);
             }
         }
-        dos.writeInt(blocks.length);
-        dos.write(blocks);
+        {
+            GZIPOutputStream gos;
+
+            System.out.println(blocks.length);
+            gos = new GZIPOutputStream(dos);
+            gos.write(blocks);
+            gos.finish();
+            gos.flush();
+        }
+        dos.flush();
     }
 
     public void save(OutputStream out, int version)

@@ -1,6 +1,5 @@
 package mcmaplib;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -430,7 +429,7 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
 
     public boolean isOutOfBounds(int width, int height, int depth) {
         if(width < 0 || height < 0 || depth < 0
-                || width >= this.width || height >= this.height || depth >= this.depth)
+                || width > this.width || height > this.height || depth > this.depth)
             return true;
         else
             return false;
@@ -675,7 +674,13 @@ public class RUMMinecraftMap extends MinecraftMap implements Cloneable, Serializ
     }
 
     public byte[][] getExtendedBlocks() {
-        return Arrays.copyOf(blockData, blockData.length);
+        byte[][] newBlocks;
+
+        newBlocks = new byte[blockData.length][blockLength];
+        for(int i = 0;i < blockData.length;i++)
+            for(int j = 0;j < blockLength;j++)
+                newBlocks[i][j] = blockData[i][j];
+        return newBlocks;
     }
 
     public short getExtendedBlockLength() {

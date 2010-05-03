@@ -83,9 +83,9 @@ public class DatMinecraftMap extends MinecraftMapBase {
                 level.width,
                 level.height,
                 level.depth,
-                level.xSpawn,
-                level.ySpawn,
-                level.zSpawn,
+                level.xSpawn * 32,
+                level.ySpawn * 32,
+                level.zSpawn * 32,
                 Math.abs(Math.round((level.rotSpawn * 255) % 255)),
                 150
             );
@@ -167,13 +167,14 @@ public class DatMinecraftMap extends MinecraftMapBase {
         level.height = height;
         level.depth = depth;
         level.blocks = blocks;
-        level.xSpawn = spawnWidth;
-        level.ySpawn = spawnHeight;
-        level.zSpawn = spawnDepth;
+        level.xSpawn = spawnWidth / 32;
+        level.ySpawn = spawnHeight / 32;
+        level.zSpawn = spawnDepth / 32;
         los.writeObject(level);
         los.flush();
         dos.flush();
         gos.finish();
+        gos.flush();
     }
 
     public void save(OutputStream out, int version)
