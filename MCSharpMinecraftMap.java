@@ -12,11 +12,19 @@ import java.io.OutputStream;
 import mcmaplib.util.ExtendedDataOutputStream;
 
 public class MCSharpMinecraftMap extends MinecraftMapBase {
-    public static final int[] SUPPORTED_VERSIONS = new int[]{
+    private static final int[] SUPPORTED_VERSIONS = new int[] {
         1874
     };
     public static final int VERSION_1 = SUPPORTED_VERSIONS[0],
                             CURRENT_VERSION = VERSION_1;
+
+    public static boolean isVersionSupported(long version) {
+        for(int i = 0;i < SUPPORTED_VERSIONS.length;i++) {
+            if(SUPPORTED_VERSIONS[i] == version)
+                return true;
+        }
+        return false;
+    }
 
 
     public static enum LevelPermission {
